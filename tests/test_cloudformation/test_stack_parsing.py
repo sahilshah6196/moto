@@ -77,8 +77,8 @@ parameters = {
 
 ssm_parameter = {
     "Parameters": {
-        "SingleParam": {"Type": "AWS::SSM::Parameter::Value<String>"},
-        "ListParam": {"Type": "AWS::SSM::Parameter::Value<List<String>>"},
+        "SingleParamCfn": {"Type": "AWS::SSM::Parameter::Value<String>"},
+        "ListParamCfn": {"Type": "AWS::SSM::Parameter::Value<List<String>>"},
     }
 }
 
@@ -525,7 +525,7 @@ def test_ssm_parameter_parsing():
         stack_id="test_id",
         name="test_stack",
         template=ssm_parameter_template_json,
-        parameters={"SingleParam": "string", "ListParam": "comma,separated,string",},
+        parameters={"SingleParamCfn": "string", "ListParamCfn": "comma,separated,string",},
         region_name="us-west-1",
     )
 
