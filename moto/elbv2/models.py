@@ -213,7 +213,7 @@ class FakeListener(CloudFormationModel):
         self.port = port
         self.ssl_policy = ssl_policy
         self.certificate = certificate
-        self.certificates = [certificate] if certificate is not None else []
+        self.certificates = OrderedDict()#[certificate] if certificate is not None else []
         self.default_actions = default_actions
         self._non_default_rules = OrderedDict()
         self._default_rule = OrderedDict()
@@ -292,6 +292,37 @@ class FakeListener(CloudFormationModel):
             default_actions,
         )
         return listener
+
+
+class FakeListenerCertificate(CloudFormationModel):
+    def __init__(
+        self, listener_arn, arn, certificates,
+     ):
+        self.listener_arn = listener_arn
+        self.arn = arn
+        self.certificates = certificates
+
+    @property
+    def physical_resource_id(self):
+        return self.arn
+
+    @staticmethod
+    def cloudformation_type():
+        # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listenercertificate.html
+        return "AWS::ElasticLoadBalancingV2::ListenerCertificate"
+
+    @classmethod
+    def create_from_cloudformation_json(
+        cls, resource_name, cloudformation_json, region_name
+    ):
+        properties = cloudformation_json["Properties"]
+        elbv2_backend = elbv2_backends[region_name]
+        listener_arn = properties.get("ListenerArn")
+        certificates = properties.get("Certificates")
+
+        listener_certificate = elbv2_backend.create_certificate(listener_arn, certificates)
+
+        return listener_certificate
 
 
 class FakeListenerRule(CloudFormationModel):
@@ -666,6 +697,21 @@ class ELBv2Backend(BaseBackend):
                 {"field": condition["Field"], "values": condition["Values"],}
             )
         return conditions
+
+    def create_certificate(self, listener_arn, certificates):
+        listeners = self.describe_listeners(None, [listener_arn])
+        if not listeners:
+            raise ListenerNotFoundError()
+        listener = listeners[0]
+ 
+        arn = listener_arn.replace(":listener/", ":listener-certificate/")
+        arn += "/%s" % (get_random_hex(16))
+
+        # create certificate
+        certificate = FakeListenerCertificate(listener.arn, arn, certificates,)
+        listener.register(arn, certificate)
+        return certificate
+
 
     def create_rule(self, listener_arn, conditions, priority, actions):
         actions = [FakeAction(action) for action in actions]
